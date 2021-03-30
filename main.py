@@ -1,11 +1,13 @@
 from igramscraper.instagram import Instagram
 import csv
+import requests
 import configparser
+import os
 
-# proxies = {
-#     'http': 'http://123.45.67.8:1087',
-#     'https': 'http://123.45.67.8:1087',
-# }
+proxies = {
+    'http':'http://109.172.57.64:8081',
+    'http':'http://46.229.214.206:3128',
+}
 
 config = configparser.ConfigParser()
 config.read("settings.ini")
@@ -15,7 +17,7 @@ print(hash_list[0])
 print(len(hash_list))
 
 instagram = Instagram()
-# instagram.set_proxies(proxies)
+instagram.set_proxies(proxies)
 
 instagram.with_credentials('login', 'password')
 instagram.login()
@@ -25,21 +27,29 @@ instagram.login()
 
 i=0
 while i < len(hash_list):
-    # Open/Create a file to append data to
-    # ftxt = open('runwaymakeup1.txt', 'w')
-    # fxls = open('runwaymakeup1.xls', 'w')
-    fcsv = open('files_with_data/' + str(hash_list[i]) + '.csv', 'w')
-    csvWriter = csv.writer(fcsv)
-    print('open file ' + str(hash_list[i]))
-
-    # Creating a hashtag
+    #Creating a hashtag
     hashtag = str(hash_list[i])
-    medias = instagram.get_medias_by_tag(hashtag, count=10000)
-    csvWriter.writerow(['Heshtag', hashtag])
+    medias = instagram.get_medias_by_tag(hashtag, count=10)
+    #csvWriter.writerow(['Heshtag', hashtag])
 
+    # Open/Create a file to append data to
+    # fcsv = open('files_with_data/' + str(hash_list[i]) + '.csv', 'w')
+    # csvWriter = csv.writer(fcsv)
+
+    print('open file ' + str(hash_list[i]))
     for media in medias:
-        csvWriter.writerow([media.image_high_resolution_url])
+        if not os.path.exists('files_with_data/' + str(hash_list[i])):
+            os.mkdir('files_with_data/' + str(hash_list[i]))
 
-    fcsv.close()
+        p = requests.get(media.image_high_resolution_url)
+        pic_url = p.url.split('?')[0].split('/')[6]
+        # print(len(pic_url))
+        # pic_url = pic_url.split('/')[6]
+        out = open('files_with_data/' + str(hash_list[i]) + '/' + str(pic_url), "wb")
+        out.write(p.content)
+        out.close()
+        #csvWriter.writerow([media.square_images])
+
+    #fcsv.close()
     print('close file ' + str(hash_list[i]))
     i = i + 1
