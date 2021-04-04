@@ -19,7 +19,7 @@ print(len(hash_list))
 instagram = Instagram()
 instagram.set_proxies(proxies)
 
-instagram.with_credentials('alek_chereshnya', 'Leeyler_1234567890')
+instagram.with_credentials('login', 'password')
 instagram.login()
 
 # account = instagram.get_account_by_id(3015034946)
