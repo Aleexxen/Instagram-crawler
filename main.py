@@ -19,7 +19,7 @@ print(len(hash_list))
 instagram = Instagram()
 instagram.set_proxies(proxies)
 
-instagram.with_credentials('login', 'password')
+instagram.with_credentials('alek_chereshnya', 'Leeyler_1234567890')
 instagram.login()
 
 # account = instagram.get_account_by_id(3015034946)
@@ -42,9 +42,8 @@ while i < len(hash_list):
             os.mkdir('files_with_data/' + str(hash_list[i]))
 
         p = requests.get(media.image_high_resolution_url)
-        pic_url = p.url.split('?')[0].split('/')[6]
-        # print(len(pic_url))
-        # pic_url = pic_url.split('/')[6]
+        pic_url = p.url.split('?')[0].split('/')[-1]
+        print(pic_url)
         out = open('files_with_data/' + str(hash_list[i]) + '/' + str(pic_url), "wb")
         out.write(p.content)
         out.close()
