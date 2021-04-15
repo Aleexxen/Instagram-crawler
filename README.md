@@ -1,5 +1,7 @@
 # Diplom
 
+Don't forget to pip install cmake, dlib, face_recognition
+
 How to use?  
 
 In the main.py file we have this section:  
