@@ -3,6 +3,7 @@ import csv
 import requests
 import configparser
 import os
+import detect_face
 
 # account = instagram.get_account_by_id(3015034946)
 # print(account)
@@ -31,7 +32,7 @@ def load_data():
     while i < len(hash_list):
         #Creating a hashtag
         hashtag = str(hash_list[i])
-        medias = instagram.get_medias_by_tag(hashtag, count=1)
+        medias = instagram.get_medias_by_tag(hashtag, count=10)
         #csvWriter.writerow(['Heshtag', hashtag])
 
         # Open/Create a file to append data to
@@ -45,11 +46,15 @@ def load_data():
 
             p = requests.get(media.image_high_resolution_url)
             pic_url = p.url.split('?')[0].split('/')[-1]
-            print(pic_url)
+            # print(pic_url)
             out = open('files_with_data/' + str(hash_list[i]) + '/' + str(pic_url), "wb")
             out.write(p.content)
             out.close()
+            if detect_face.check_faces('files_with_data/' + str(hash_list[i]) + '/' + str(pic_url)) == []:
+                os.remove('files_with_data/' + str(hash_list[i]) + '/' + str(pic_url))
             #csvWriter.writerow([media.square_images])
+            else:
+                print(pic_url)
 
         #fcsv.close()
         print('close file ' + str(hash_list[i]))
@@ -79,4 +84,4 @@ def find_max_size_in_each_hashtag():
             size_file.close()
 
 load_data()
-print('max image size = ' + str(find_max_size_from_all()) + ' bites')
+# print('max image size = ' + str(find_max_size_from_all()) + ' bites')
