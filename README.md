@@ -10,7 +10,7 @@ Then click run
 That's all  
 
 How it works?  
-At the very top, select the path to your file .env, an example of such a file is .env.sample
+At the very top, select the path to your file .env, an example of such a file is env.sample
 uncomment show_image() function at the bottom
 All images will appear in "out_imgs" package in packages with their own hashtag name  
 
