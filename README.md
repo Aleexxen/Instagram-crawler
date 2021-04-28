@@ -1,6 +1,6 @@
 # Diplom
 
-Don't forget to pip install cmake, dlib, face_recognition
+Don't forget to pip install ***cmake, dlib, face_recognition***
 
 <ins>How to use?</ins>  
 In the ***.env*** directory put your arguments
