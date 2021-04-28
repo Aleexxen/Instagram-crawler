@@ -28,6 +28,7 @@ db = client['test_images']
 
 # Fetch our images collection
 images_collection = db['images']
+users_collection = db['users']
 
 instagram = Instagram()
 
@@ -35,21 +36,21 @@ def log_in():
     # account = instagram.get_account_by_id(3015034946)
     # print(account)
 
-    proxies = {
-        'http': 'http://50.206.25.107:80',
-        # 'http':'http://109.172.57.64:8081',
-        # 'http': 'http://46.229.214.206:3128',
-    }
+    # proxies = {
+    #     'http': 'http://50.206.25.107:80',
+    #     # 'http':'http://109.172.57.64:8081',
+    #     # 'http': 'http://46.229.214.206:3128',
+    # }
 
-    instagram.set_proxies(proxies)
+    # instagram.set_proxies(proxies)
 
     # config = configparser.ConfigParser()
     # config.read("settings.ini")
     # hash_list = config.get("FilesConf", "hashtags").split()
 
-    instagram.with_credentials(os.getenv('IG_CLIENT_ID'), os.getenv('IG_CLIENT_SECRET'))
+    instagram.with_credentials(os.getenv('IG_CLIENT_ID'), os.getenv('IG_CLIENT_SECRET'), 'sessions/')
     try:
-        # instagram.is_logged_in('./sessions')
+        # print(instagram.is_logged_in('sessions/'))
         instagram.login()
     except Exception as e:
         print(e)
@@ -57,7 +58,7 @@ def log_in():
         # instagram.set_cookies(cookie)
 
 # Download images in database
-def load_data():
+def load_data_by_tag():
 
     # cookie = "sessions/diplom-test.txt"
     # instagram.set_cookies(cookie)
@@ -82,17 +83,29 @@ def load_data():
             # out = open(out_path, "wb")
             # out.write(p.content)
             # out.close()
+
             image = p.content
             stream = io.BytesIO(image)
             result = detect_face.check_faces(stream)
             if not result == []:
-                # os.remove(out_path)
+                # DECODE IMAGE
                 b_img = base64.b64encode(image)
                 stream.close()
 
+                # Extract out_text
+                list_of_image_tags = []
+                caption = media.caption
+                arr = caption.split('#')
+                print(arr)
+                j = 1
+                while j < len(arr):
+                    list_of_image_tags.append(arr[j])
+                    j = j + 1
+                print(list_of_image_tags)
+
                 # Insert data in database
                 try:
-                    db.images.insert_one({'_id': pic_url.split('.')[0], 'tag': hashtag, 'q_grade': 0, 'image': b_img})
+                    images_collection.insert_one({'_id': pic_url.split('.')[0], 'tag': list_of_image_tags, 'q_grade': 0, 'image': b_img})
                 except Exception as e:
                     print(e)
                     continue
@@ -100,6 +113,63 @@ def load_data():
 
         #fcsv.close()
         print('close file ' + hashtag)
+        i = i + 1
+
+def load_data_by_user_name():
+    user_name_list = os.getenv('USER_NAMES').split()
+    print(user_name_list)
+    print(user_name_list[0])
+    print(len(user_name_list))
+
+    i = 0
+    while i < len(user_name_list):
+        # Creating a user_id
+        user_name = str(user_name_list[i])
+        try:
+            medias = instagram.get_medias(user_name, int(os.getenv('MEDIA_COUNT')))
+        except Exception as infe:
+            print(infe)
+            i = i + 1
+            continue
+
+        list_of_user_tags = []
+
+        # Get medias
+        for media in medias:
+            p = requests.get(media.image_high_resolution_url)
+            pic_url = p.url.split('?')[0].split('/')[-1]
+
+            # Check if image has face
+            image = p.content
+            # stream = io.BytesIO(image)
+            # result = detect_face.check_faces(stream)
+            # if not result == []:
+
+            # Extract out_text
+            caption = media.caption
+            arr = caption.split('#')
+            print(arr)
+            j = 1
+            while j < len(arr):
+                list_of_user_tags.append(arr[j])
+                j = j + 1
+            print(list_of_user_tags)
+
+            # DECODE IMAGE
+            b_img = base64.b64encode(image)
+            # stream.close()
+
+            # Insert data in database
+            try:
+                users_collection.update_one({'_id': user_name, 'tags_list': list_of_user_tags, 'q_grade': 0},
+                                        {'$addToSet': { 'images': pic_url.split('.')[0]} } )
+            except Exception as e:
+                print(e)
+                continue
+            print(pic_url)
+
+        # fcsv.close()
+        print('close file ' + user_name)
         i = i + 1
 
 def find_max_size_from_all():
@@ -125,17 +195,39 @@ def find_max_size_in_each_hashtag():
             size_file.write(str(max_size))
             size_file.close()
 
-def show_image(tag):
-    for img in db.images.find({'tag': str(tag)}):
-        out_img_path = 'out_imgs/' + str(tag) + '/'
+def show_image_by_tag(tag):
+    for img in images_collection.find({'tag': str(tag)}):
+        out_img_path = 'out_imgs/tags/' + str(tag) + '/'
         if not os.path.exists(out_img_path):
             os.mkdir(out_img_path)
         with open(out_img_path + img['_id'] + '.jpg', "wb") as fimage:
             fimage.write(base64.b64decode(img['image']))
             fimage.close()
 
+def show_image_by_user_name(name):
+    for img in users_collection.find({'_id': str(name)}):
+        out_img_path = 'out_imgs/names/' + str(name) + '/'
+        out_text_path = 'out_text/user_names/'
+        if not os.path.exists(out_img_path):
+            os.mkdir(out_img_path)
+        if not os.path.exists(out_text_path):
+            os.mkdir(out_img_path)
+        with open(out_text_path + str(name) + '.txt', 'a') as ftxt:
+            for el in img['tags_list']:
+                ftxt.write(el)
+            ftxt.write(' ')
+            ftxt.close()
+        for image in img['images']:
+            with open(out_img_path + image + '.jpg', "wb") as fimage:
+                fimage.write(base64.b64decode(image))
+                fimage.close()
+
 log_in()
-load_data()
+#load_data_by_user_name()
+#load_data_by_tag()
 
 # Download images in out_img_path
-#show_image('artmakeup')
+#show_image_by_tags('artmakeup')
+#show_image_by_user_name('helenesjostedt')
+
+# db.images.drop()

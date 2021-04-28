@@ -2,3 +2,7 @@
 .env
 
 sessions/*
+
+env
+
+venv
