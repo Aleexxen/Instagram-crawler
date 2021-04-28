@@ -3,6 +3,6 @@
 
 sessions/*
 
-env
+venv/
 
-venv
+/env/
