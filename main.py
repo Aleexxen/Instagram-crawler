@@ -14,6 +14,7 @@ import shutil
 import base64
 from dotenv import load_dotenv, find_dotenv
 import io
+import re
 
 #load path to all safe variables
 load_dotenv(find_dotenv('.env'))
@@ -31,6 +32,9 @@ images_collection = db['images']
 users_collection = db['users']
 
 instagram = Instagram()
+
+def contains(string):
+    return not re.search(r'[^a-zA-Z0-9а-яА-Я_ ]', string)
 
 def log_in():
     # account = instagram.get_account_by_id(3015034946)
@@ -84,6 +88,7 @@ def load_data_by_tag():
             # out.write(p.content)
             # out.close()
 
+            # Face detection
             image = p.content
             stream = io.BytesIO(image)
             result = detect_face.check_faces(stream)
@@ -99,7 +104,9 @@ def load_data_by_tag():
                 print(arr)
                 j = 1
                 while j < len(arr):
-                    list_of_image_tags.append(arr[j])
+                    el = arr[j].replace(' ', '')
+                    if contains(el):
+                        list_of_image_tags.append(el)
                     j = j + 1
                 print(list_of_image_tags)
 
@@ -196,7 +203,7 @@ def find_max_size_in_each_hashtag():
             size_file.close()
 
 def show_image_by_tag(tag):
-    for img in images_collection.find({'tag': str(tag)}):
+    for img in images_collection.find({'tag': { '$all' : [str(tag)] }}):
         out_img_path = 'out_imgs/tags/' + str(tag) + '/'
         if not os.path.exists(out_img_path):
             os.mkdir(out_img_path)
@@ -223,11 +230,11 @@ def show_image_by_user_name(name):
                 fimage.close()
 
 log_in()
-#load_data_by_user_name()
 #load_data_by_tag()
+#load_data_by_user_name()
 
 # Download images in out_img_path
-#show_image_by_tags('artmakeup')
+show_image_by_tag('makeupartists')
 #show_image_by_user_name('helenesjostedt')
 
 # db.images.drop()
