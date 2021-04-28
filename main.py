@@ -31,35 +31,28 @@ db = client['test_images']
 images_collection = db['images']
 users_collection = db['users']
 
-instagram = Instagram()
-
 def contains(string):
     return not re.search(r'[^a-zA-Z0-9а-яА-Я_ ]', string)
+
+instagram = Instagram()
 
 def log_in():
     # account = instagram.get_account_by_id(3015034946)
     # print(account)
 
-    # proxies = {
-    #     'http': 'http://50.206.25.107:80',
-    #     # 'http':'http://109.172.57.64:8081',
-    #     # 'http': 'http://46.229.214.206:3128',
-    # }
+    proxies = {
+        'http': 'http://50.206.25.107:80',
+        # 'http':'http://109.172.57.64:8081',
+        # 'http': 'http://46.229.214.206:3128',
+    }
 
-    # instagram.set_proxies(proxies)
+    instagram.set_proxies(proxies)
 
-    # config = configparser.ConfigParser()
-    # config.read("settings.ini")
-    # hash_list = config.get("FilesConf", "hashtags").split()
-
-    instagram.with_credentials(os.getenv('IG_CLIENT_ID'), os.getenv('IG_CLIENT_SECRET'), 'sessions/')
+    instagram.with_credentials(os.getenv('IG_LOGIN'), os.getenv('IG_PASSWORD'), 'sessions/')
     try:
-        # print(instagram.is_logged_in('sessions/'))
         instagram.login()
     except Exception as e:
         print(e)
-        # cookie = "sessions/diplom-test.txt"
-        # instagram.set_cookies(cookie)
 
 # Download images in database
 def load_data_by_tag():
@@ -231,10 +224,10 @@ def show_image_by_user_name(name):
 
 log_in()
 #load_data_by_tag()
-#load_data_by_user_name()
+load_data_by_user_name()
 
 # Download images in out_img_path
-show_image_by_tag('makeupartists')
+#show_image_by_tag('makeup')
 #show_image_by_user_name('helenesjostedt')
 
 # db.images.drop()
