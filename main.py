@@ -162,7 +162,7 @@ def load_data_by_user_name():
             # Insert data in database
             try:
                 users_collection.update_one({'_id': user_name, 'tags_list': list_of_user_tags, 'q_grade': 0},
-                                        {'$addToSet': { 'images': pic_url.split('.')[0]} } )
+                                        {'$addToSet': { 'images': str(pic_url.split('.')[0])} } )
             except Exception as e:
                 print(e)
                 continue
@@ -195,14 +195,16 @@ def find_max_size_in_each_hashtag():
             size_file.write(str(max_size))
             size_file.close()
 
-def show_image_by_tag(tag):
-    for img in images_collection.find({'tag': { '$all' : [str(tag)] }}):
-        out_img_path = 'out_imgs/tags/' + str(tag) + '/'
-        if not os.path.exists(out_img_path):
-            os.mkdir(out_img_path)
-        with open(out_img_path + img['_id'] + '.jpg', "wb") as fimage:
-            fimage.write(base64.b64decode(img['image']))
-            fimage.close()
+def show_image_by_tag(tags):
+    tag_list = tags.split()
+    for tag in tag_list:
+        for img in images_collection.find({'tag': { '$all' : [str(tag)] }}):
+            out_img_path = 'out_imgs/tags/' + str(tag) + '/'
+            if not os.path.exists(out_img_path):
+                os.mkdir(out_img_path)
+            with open(out_img_path + img['_id'] + '.jpg', "wb") as fimage:
+                fimage.write(base64.b64decode(img['image']))
+                fimage.close()
 
 def show_image_by_user_name(name):
     for img in users_collection.find({'_id': str(name)}):
@@ -223,11 +225,14 @@ def show_image_by_user_name(name):
                 fimage.close()
 
 log_in()
+st = 'beninmua beninmuas makeupartistinbenin okuku beads beninokuku'
+
+# Load data
 #load_data_by_tag()
-load_data_by_user_name()
+#load_data_by_user_name()
 
 # Download images in out_img_path
-#show_image_by_tag('makeup')
+show_image_by_tag(st)
 #show_image_by_user_name('helenesjostedt')
 
 # db.images.drop()
