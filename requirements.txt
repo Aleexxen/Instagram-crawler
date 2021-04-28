@@ -1,0 +1,6 @@
+igramscraper
+cmake
+dlib
+face_recognition
+dotenv
+pymongo
