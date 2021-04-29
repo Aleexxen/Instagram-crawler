@@ -1,22 +1,14 @@
 from igramscraper.instagram import Instagram
-import csv
 from pymongo import MongoClient
 import requests
-import configparser
 import os
 import detect_face
-import zlib
-from bson import binary
-from PIL import Image
-import matplotlib.pyplot as plt
-import gzip
-import shutil
 import base64
 from dotenv import load_dotenv, find_dotenv
 import io
 import re
 
-#load path to all safe variables
+# Load path to all safe variables
 load_dotenv(find_dotenv('.env'))
 
 # Create the client
@@ -31,15 +23,25 @@ db = client['test_images']
 images_collection = db['images']
 users_collection = db['users']
 
+# Check if string contains something, but not like this trash "" or " or .
 def contains(string):
+    """
+    :param string: string value
+    :return: True or False
+    """
     return not re.search(r'[^a-zA-Z0-9а-яА-Я_ ]', string)
 
 instagram = Instagram()
 
+# Instagram login
 def log_in():
+    """
+    :return: write headers and credits for login
+    """
     # account = instagram.get_account_by_id(3015034946)
     # print(account)
 
+    # Proxies to use
     proxies = {
         'http': 'http://50.206.25.107:80',
         # 'http':'http://109.172.57.64:8081',
@@ -49,6 +51,10 @@ def log_in():
     instagram.set_proxies(proxies)
 
     instagram.with_credentials(os.getenv('IG_LOGIN'), os.getenv('IG_PASSWORD'), 'sessions/')
+    """
+    :third param : path to your sessions folder, which contains cookies
+    :return: login with these credentials
+    """
     try:
         instagram.login()
     except Exception as e:
@@ -56,6 +62,9 @@ def log_in():
 
 # Download images in database
 def load_data_by_tag():
+    """
+    :return: Download images in database test_images
+    """
 
     # cookie = "sessions/diplom-test.txt"
     # instagram.set_cookies(cookie)
@@ -75,11 +84,6 @@ def load_data_by_tag():
         for media in medias:
             p = requests.get(media.image_high_resolution_url)
             pic_url = p.url.split('?')[0].split('/')[-1]
-            # print(pic_url)
-            # out_path = data_path + '/' + str(pic_url)
-            # out = open(out_path, "wb")
-            # out.write(p.content)
-            # out.close()
 
             # Face detection
             image = p.content
@@ -94,7 +98,6 @@ def load_data_by_tag():
                 list_of_image_tags = []
                 caption = media.caption
                 arr = caption.split('#')
-                print(arr)
                 j = 1
                 while j < len(arr):
                     el = arr[j].replace(' ', '')
@@ -116,6 +119,9 @@ def load_data_by_tag():
         i = i + 1
 
 def load_data_by_user_name():
+    """
+    :return: Download images and user info(tags) in database test_images
+    """
     user_name_list = os.getenv('USER_NAMES').split()
     print(user_name_list)
     print(user_name_list[0])
@@ -125,6 +131,7 @@ def load_data_by_user_name():
     while i < len(user_name_list):
         # Creating a user_id
         user_name = str(user_name_list[i])
+        log_in()
         try:
             medias = instagram.get_medias(user_name, int(os.getenv('MEDIA_COUNT')))
         except Exception as infe:
@@ -148,10 +155,11 @@ def load_data_by_user_name():
             # Extract out_text
             caption = media.caption
             arr = caption.split('#')
-            print(arr)
             j = 1
             while j < len(arr):
-                list_of_user_tags.append(arr[j])
+                el = arr[j].replace(' ', '')
+                if contains(el):
+                    list_of_user_tags.append(el)
                 j = j + 1
             print(list_of_user_tags)
 
@@ -161,14 +169,18 @@ def load_data_by_user_name():
 
             # Insert data in database
             try:
-                users_collection.update_one({'_id': user_name, 'tags_list': list_of_user_tags, 'q_grade': 0},
-                                        {'$addToSet': { 'images': str(pic_url.split('.')[0])} } )
+                users_collection.insert_one({'_id': user_name, 'tags_list': list_of_user_tags, 'q_grade': 0, 'images': [pic_url.split('.')[0]]})
+            except Exception as e:
+                print(e)
+                users_collection.update_one({'_id': user_name}, {'$addToSet': {'tags_list': {'$each': list_of_user_tags}, 'images': pic_url.split('.')[0]}}, upsert=True)
+            try:
+                images_collection.insert_one(
+                    {'_id': pic_url.split('.')[0], 'tag': list_of_user_tags, 'q_grade': 0, 'image': b_img})
             except Exception as e:
                 print(e)
                 continue
             print(pic_url)
 
-        # fcsv.close()
         print('close file ' + user_name)
         i = i + 1
 
@@ -195,7 +207,25 @@ def find_max_size_in_each_hashtag():
             size_file.write(str(max_size))
             size_file.close()
 
+def show_image_by_id(img_id_list):
+    """
+    :param img_id_list: string array of image ids
+    :return: list of binary images
+    """
+    images_list = []
+    for img_id in img_id_list:
+        if images_collection.find_one({'_id': img_id}) == {}:
+            print('NO IMAGE WITH ID = ' + img_id)
+        else:
+            image = images_collection.find_one({'_id': img_id})
+            images_list.append(image['image'])
+    return images_list
+
 def show_image_by_tag(tags):
+    """
+    :param tags: string array or value of tags
+    :return: download images in out_img_path
+    """
     tag_list = tags.split()
     for tag in tag_list:
         for img in images_collection.find({'tag': { '$all' : [str(tag)] }}):
@@ -206,33 +236,51 @@ def show_image_by_tag(tags):
                 fimage.write(base64.b64decode(img['image']))
                 fimage.close()
 
-def show_image_by_user_name(name):
-    for img in users_collection.find({'_id': str(name)}):
-        out_img_path = 'out_imgs/names/' + str(name) + '/'
-        out_text_path = 'out_text/user_names/'
-        if not os.path.exists(out_img_path):
-            os.mkdir(out_img_path)
-        if not os.path.exists(out_text_path):
-            os.mkdir(out_img_path)
-        with open(out_text_path + str(name) + '.txt', 'a') as ftxt:
-            for el in img['tags_list']:
-                ftxt.write(el)
-            ftxt.write(' ')
-            ftxt.close()
-        for image in img['images']:
-            with open(out_img_path + image + '.jpg', "wb") as fimage:
-                fimage.write(base64.b64decode(image))
-                fimage.close()
+def show_image_by_user_name(names):
+    """
+    :param names: string array or value of names
+    :return: download images in out_img_path
+             download array of tags in out_text_path
+    """
+    names_list = names.split()
+    for name in names_list:
+        for user in users_collection.find({'_id': str(name)}):
+            out_img_path = 'out_imgs/names/' + str(name) + '/'
+            out_text_path = 'out_text/user_names/'
 
-log_in()
-st = 'beninmua beninmuas makeupartistinbenin okuku beads beninokuku'
+            if not os.path.exists(out_img_path):
+                os.mkdir(out_img_path)
+
+            if not os.path.exists(out_text_path):
+                os.mkdir(out_img_path)
+
+            with open(out_text_path + str(name) + '.txt', 'w') as ftxt:
+                for el in user['tags_list']:
+                    ftxt.write(el + ' ')
+                ftxt.close()
+
+            images_list = show_image_by_id(user['images'])
+            i = 0
+            for image in images_list:
+                if i < len(images_list):
+                    with open(out_img_path + user['images'][i] + '.jpg', "wb") as fimage:
+                        fimage.write(base64.b64decode(image))
+                        fimage.close()
+                        i = i + 1
+
+# Login to instagram
+#log_in()
 
 # Load data
+# You don't have to run log_in() function for load_data_by_user_name()
 #load_data_by_tag()
 #load_data_by_user_name()
 
 # Download images in out_img_path
-show_image_by_tag(st)
-#show_image_by_user_name('helenesjostedt')
+# No instagram login required
+#show_image_by_tag(os.getenv('HASHTAGS_FOR_SEARCH'))
+#show_image_by_user_name(os.getenv('USER_NAMES_FOR_SEARCH'))
 
-# db.images.drop()
+# Delete <collection_name> collection from db test_images
+#db.<collection_name>.drop()
+
