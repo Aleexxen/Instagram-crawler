@@ -272,7 +272,7 @@ def show_image_by_user_name(names):
 #log_in()
 
 # Load data
-# You don't have to run log_in() function for load_data_by_user_name()
+# You don't have to run log_in() function for load_data_by_user_name(), because it included there
 #load_data_by_tag()
 #load_data_by_user_name()
 
