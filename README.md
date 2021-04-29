@@ -12,7 +12,7 @@ That's all
 
 <ins>How it works?</ins>  
 Example:  
-uncomment ***show_image_by_tag()*** function at the bottom
+uncomment ***show_image_by_tag()*** function at the bottom  
 All images will appear in ***"out_imgs"*** package in packages with their own ***hashtag*** name  
 
 Each image has its own ***unique name***  
