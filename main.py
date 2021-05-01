@@ -7,6 +7,11 @@ import base64
 from dotenv import load_dotenv, find_dotenv
 import io
 import re
+import makeup_extractor
+import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
+import urllib.request
 
 # Load path to all safe variables
 load_dotenv(find_dotenv('.env'))
@@ -86,13 +91,17 @@ def load_data_by_tag():
             pic_url = p.url.split('?')[0].split('/')[-1]
 
             # Face detection
-            image = p.content
-            stream = io.BytesIO(image)
-            result = detect_face.check_faces(stream)
-            if not result == []:
+            url = p.url
+            webUrl = urllib.request.urlopen(url)
+            image = Image.open(webUrl)
+            content = p.content
+            # stream = io.BytesIO(content)
+            extr_makeup = makeup_extractor.ExtractMakeup(False)
+            img = np.array(image)
+            if extr_makeup.detect_face(img):
                 # DECODE IMAGE
-                b_img = base64.b64encode(image)
-                stream.close()
+                b_img = base64.b64encode(content)
+                # stream.close()
 
                 # Extract out_text
                 list_of_image_tags = []
@@ -147,39 +156,42 @@ def load_data_by_user_name():
             pic_url = p.url.split('?')[0].split('/')[-1]
 
             # Check if image has face
-            image = p.content
-            # stream = io.BytesIO(image)
-            # result = detect_face.check_faces(stream)
-            # if not result == []:
+            url = p.url
+            webUrl = urllib.request.urlopen(url)
+            image = Image.open(webUrl)
+            content = p.content
+            extr_makeup = makeup_extractor.ExtractMakeup(False)
+            img = np.array(image)
 
-            # Extract out_text
-            caption = media.caption
-            arr = caption.split('#')
-            j = 1
-            while j < len(arr):
-                el = arr[j].replace(' ', '')
-                if contains(el):
-                    list_of_user_tags.append(el)
-                j = j + 1
-            print(list_of_user_tags)
+            if extr_makeup.detect_face(img):
 
-            # DECODE IMAGE
-            b_img = base64.b64encode(image)
-            # stream.close()
+                # DECODE IMAGE
+                b_img = base64.b64encode(content)
 
-            # Insert data in database
-            try:
-                users_collection.insert_one({'_id': user_name, 'tags_list': list_of_user_tags, 'q_grade': 0, 'images': [pic_url.split('.')[0]]})
-            except Exception as e:
-                print(e)
-                users_collection.update_one({'_id': user_name}, {'$addToSet': {'tags_list': {'$each': list_of_user_tags}, 'images': pic_url.split('.')[0]}}, upsert=True)
-            try:
-                images_collection.insert_one(
-                    {'_id': pic_url.split('.')[0], 'tag': list_of_user_tags, 'q_grade': 0, 'image': b_img})
-            except Exception as e:
-                print(e)
-                continue
-            print(pic_url)
+                # Extract out_text
+                caption = media.caption
+                arr = caption.split('#')
+                j = 1
+                while j < len(arr):
+                    el = arr[j].replace(' ', '')
+                    if contains(el):
+                        list_of_user_tags.append(el)
+                    j = j + 1
+                print(list_of_user_tags)
+
+                # Insert data in database
+                try:
+                    users_collection.insert_one({'_id': user_name, 'tags_list': list_of_user_tags, 'q_grade': 0, 'images': [pic_url.split('.')[0]]})
+                except Exception as e:
+                    print(e)
+                    users_collection.update_one({'_id': user_name}, {'$addToSet': {'tags_list': {'$each': list_of_user_tags}, 'images': pic_url.split('.')[0]}}, upsert=True)
+                try:
+                    images_collection.insert_one(
+                        {'_id': pic_url.split('.')[0], 'tag': list_of_user_tags, 'q_grade': 0, 'image': b_img})
+                except Exception as e:
+                    print(e)
+                    continue
+                print(pic_url)
 
         print('close file ' + user_name)
         i = i + 1
@@ -269,11 +281,11 @@ def show_image_by_user_name(names):
                         i = i + 1
 
 # Login to instagram
-#log_in()
+# log_in()
 
 # Load data
 # You don't have to run log_in() function for load_data_by_user_name(), because it included there
-#load_data_by_tag()
+# load_data_by_tag()
 #load_data_by_user_name()
 
 # Download images in out_img_path
@@ -284,3 +296,11 @@ def show_image_by_user_name(names):
 # Delete <collection_name> collection from db test_images
 #db.<collection_name>.drop()
 
+# extr_makeup = makeup_extractor.ExtractMakeup(False)
+#
+# for address, dirs, files in os.walk('out_imgs/names/kennediefairie'):
+#     for file in files:
+#         image = Image.open(address + '/' + file)
+#         img = np.array(image)
+#         # print(extr_makeup.detect_face(img))
+#         print(extr_makeup.extract(img))
