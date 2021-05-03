@@ -97,8 +97,12 @@ def load_data_by_tag():
             content = p.content
             # stream = io.BytesIO(content)
             extr_makeup = makeup_extractor.ExtractMakeup(False)
+            #color_palette_extractor = makeup_extractor.ExtractColors()
             img = np.array(image)
             if extr_makeup.detect_face(img):
+                # Extract makeup and palette
+                #b_makeup, b_palette = makeup_extractor.get_results_as_base64(img, extr_makeup, color_palette_extractor)
+
                 # DECODE IMAGE
                 b_img = base64.b64encode(content)
                 # stream.close()
@@ -241,12 +245,31 @@ def show_image_by_tag(tags):
     tag_list = tags.split()
     for tag in tag_list:
         for img in images_collection.find({'tag': { '$all' : [str(tag)] }}):
-            out_img_path = 'out_imgs/tags/' + str(tag) + '/'
+            tags_path = 'out_imgs/tags/' + str(tag) + '/'
+            out_img_path = 'out_imgs/tags/' + str(tag) + '/' + img['_id'] + '/'
+            if not os.path.exists(tags_path):
+                os.mkdir(tags_path)
             if not os.path.exists(out_img_path):
                 os.mkdir(out_img_path)
             with open(out_img_path + img['_id'] + '.jpg', "wb") as fimage:
                 fimage.write(base64.b64decode(img['image']))
                 fimage.close()
+
+            # Extract makeup and palette
+            # extr_makeup = makeup_extractor.ExtractMakeup(False)
+            # color_palette_extractor = makeup_extractor.ExtractColors()
+            # makeup, palette = makeup_extractor.get_results_as_base64(img, extr_makeup, color_palette_extractor)
+            # makeup_img = Image.fromarray(makeup)
+            # palette_img = Image.fromarray(palette)
+            # makeup_img.save(out_img_path + 'makeup.jpg')
+            # palette_img.save(out_img_path + 'palette.jpg')
+
+            # with open(out_img_path + 'makeup.png', "wb") as fmakeup:
+            #     fmakeup.write(base64.b64decode(img['makeup']))
+            #     fmakeup.close()
+            # with open(out_img_path + 'palette.png', "wb") as fpalette:
+            #     fpalette.write(base64.b64decode(img['palette']))
+            #     fpalette.close()
 
 def show_image_by_user_name(names):
     """
@@ -257,35 +280,80 @@ def show_image_by_user_name(names):
     names_list = names.split()
     for name in names_list:
         for user in users_collection.find({'_id': str(name)}):
-            out_img_path = 'out_imgs/names/' + str(name) + '/'
+            names_path = 'out_imgs/names/' + str(name) + '/'
+            if not os.path.exists(names_path):
+                os.mkdir(names_path)
+
             out_text_path = 'out_text/user_names/'
-
-            if not os.path.exists(out_img_path):
-                os.mkdir(out_img_path)
-
             if not os.path.exists(out_text_path):
-                os.mkdir(out_img_path)
+                os.mkdir(out_text_path)
+
+            for el in user['images']:
+                out_img_path = names_path + el + '/'
+                if not os.path.exists(out_img_path):
+                    os.mkdir(out_img_path)
+
+            images_list = show_image_by_id(user['images'])
+            i = 0
+            for image in images_list:
+                if i < len(images_list):
+                    with open(names_path + user['images'][i] + '/' + user['images'][i] + '.jpg', "wb") as fimage:
+                        fimage.write(base64.b64decode(image))
+                        fimage.close()
+                        i = i + 1
 
             with open(out_text_path + str(name) + '.txt', 'w') as ftxt:
                 for el in user['tags_list']:
                     ftxt.write(el + ' ')
                 ftxt.close()
 
-            images_list = show_image_by_id(user['images'])
-            i = 0
-            for image in images_list:
-                if i < len(images_list):
-                    with open(out_img_path + user['images'][i] + '.jpg', "wb") as fimage:
-                        fimage.write(base64.b64decode(image))
-                        fimage.close()
-                        i = i + 1
+
+def extract_makeup_by_tag(tag_list):
+    extr_makeup = makeup_extractor.ExtractMakeup(False)
+    color_palette_extractor = makeup_extractor.ExtractColors()
+    imagePath_to_extract = 'out_imgs/tags/'
+
+    for address, dirs, files in os.walk(imagePath_to_extract):
+        tags = tag_list.split()
+        folders = list(set(tags) & set(dirs))
+        for folder in folders:
+            dist_path = imagePath_to_extract + folder + '/'
+            for fol_address, fol_dirs, fol_files in os.walk(dist_path):
+                for fol_file in fol_files:
+                    if re.search(r'_n', fol_file):
+                        img = plt.imread(fol_address + '/' + fol_file, 'jpg')
+                        makeup, palette = makeup_extractor.get_results_as_base64(img, extr_makeup, color_palette_extractor)
+                        makeup_img = Image.fromarray(makeup)
+                        palette_img = Image.fromarray(palette)
+                        makeup_img.save(fol_address + '/' + 'makeup.png')
+                        palette_img.save(fol_address + '/' + 'palette.png')
+
+def extract_makeup_by_user(users_list):
+    extr_makeup = makeup_extractor.ExtractMakeup(False)
+    color_palette_extractor = makeup_extractor.ExtractColors()
+    imagePath_to_extract = 'out_imgs/names/'
+
+    for address, dirs, files in os.walk(imagePath_to_extract):
+        users = users_list.split()
+        folders = list(set(users) & set(dirs))
+        for folder in folders:
+            dist_path = imagePath_to_extract + folder + '/'
+            for fol_address, fol_dirs, fol_files in os.walk(dist_path):
+                for fol_file in fol_files:
+                    if re.search(r'_n', fol_file):
+                        img = plt.imread(fol_address + '/' + fol_file, 'jpg')
+                        makeup, palette = makeup_extractor.get_results_as_base64(img, extr_makeup, color_palette_extractor)
+                        makeup_img = Image.fromarray(makeup)
+                        palette_img = Image.fromarray(palette)
+                        makeup_img.save(fol_address + '/' + 'makeup.png')
+                        palette_img.save(fol_address + '/' + 'palette.png')
 
 # Login to instagram
-# log_in()
+#log_in()
 
 # Load data
 # You don't have to run log_in() function for load_data_by_user_name(), because it included there
-# load_data_by_tag()
+#load_data_by_tag()
 #load_data_by_user_name()
 
 # Download images in out_img_path
@@ -293,14 +361,32 @@ def show_image_by_user_name(names):
 #show_image_by_tag(os.getenv('HASHTAGS_FOR_SEARCH'))
 #show_image_by_user_name(os.getenv('USER_NAMES_FOR_SEARCH'))
 
+# Extract makeup from downloaded images
+#extract_makeup_by_tag(os.getenv('HASHTAGS_FOR_SEARCH'))
+#extract_makeup_by_user(os.getenv('USER_NAMES_FOR_SEARCH'))
+
 # Delete <collection_name> collection from db test_images
 #db.<collection_name>.drop()
 
-# extr_makeup = makeup_extractor.ExtractMakeup(False)
-#
-# for address, dirs, files in os.walk('out_imgs/names/kennediefairie'):
-#     for file in files:
-#         image = Image.open(address + '/' + file)
-#         img = np.array(image)
-#         # print(extr_makeup.detect_face(img))
-#         print(extr_makeup.extract(img))
+
+# Experiments
+
+
+            # if os.path.exists(imagePath_to_extract + tag):
+            #     img = plt.imread(address + '/' + tag + '/' + file, 'jpg')
+            #     makeup, palette = makeup_extractor.get_results_as_base64(img, extr_makeup, color_palette_extractor)
+            #     makeup_img = Image.fromarray(makeup)
+            #     palette_img = Image.fromarray(palette)
+            #     makeup_img.save(address + '/' + tag + '/' + 'makeup.jpg')
+            #     palette_img.save(address + '/' + tag + '/' + 'palette.jpg')
+
+
+        # for file in files:
+        #     # image = Image.open(address + '/' + file)
+        #     # img = np.array(image)
+        #     img = plt.imread(address + '/' + file, 'jpg')
+        #     # print(extr_makeup.detect_face(img))
+        #     # print(extr_makeup.extract(img))
+        #     result = makeup_extractor.get_results_as_nparray(img, extr_makeup, color_palette_extractor)
+        #     # extr_makeup.plot_face_box()
+        #     print(result)
