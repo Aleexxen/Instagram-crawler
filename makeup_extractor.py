@@ -218,18 +218,10 @@ def plot_results(img, makeup_extractor, colors_extractor):
 
     plt.show()
 
-def get_results_as_base64(img, makeup_extractor, colors_extractor):
+def get_results_as_nparray(img, makeup_extractor, colors_extractor):
     makeup = makeup_extractor.extract(img)
     colors = colors_extractor.extract(makeup)
     palette = create_color_palette(colors)
-
-    # makeup = makeup.tostring()
-    # palette = palette.tostring()
-    # makeup = Image.fromarray(makeup)
-    # palette = Image.fromarray(palette)
-
-    # b_makeup = base64.b64encode(makeup)
-    # b_palette = base64.b64encode(palette)
 
     return makeup, palette
 

@@ -1,8 +1,8 @@
+import cv2
 from igramscraper.instagram import Instagram
 from pymongo import MongoClient
 import requests
 import os
-import detect_face
 import base64
 from dotenv import load_dotenv, find_dotenv
 import io
@@ -95,17 +95,24 @@ def load_data_by_tag():
             webUrl = urllib.request.urlopen(url)
             image = Image.open(webUrl)
             content = p.content
-            # stream = io.BytesIO(content)
+
             extr_makeup = makeup_extractor.ExtractMakeup(False)
-            #color_palette_extractor = makeup_extractor.ExtractColors()
+            color_palette_extractor = makeup_extractor.ExtractColors()
+
             img = np.array(image)
             if extr_makeup.detect_face(img):
                 # Extract makeup and palette
-                #b_makeup, b_palette = makeup_extractor.get_results_as_base64(img, extr_makeup, color_palette_extractor)
 
-                # DECODE IMAGE
+                makeup, palette = makeup_extractor.get_results_as_nparray(img, extr_makeup, color_palette_extractor)
+
+                m_retval, m_buffer = cv2.imencode('.png', makeup)
+                p_retval, p_buffer = cv2.imencode('.png', palette)
+
+                makeup_as_txt = base64.b64encode(m_buffer)
+                palette_as_txt = base64.b64encode(p_buffer)
+
+                # ENCODE IMAGE
                 b_img = base64.b64encode(content)
-                # stream.close()
 
                 # Extract out_text
                 list_of_image_tags = []
@@ -121,13 +128,12 @@ def load_data_by_tag():
 
                 # Insert data in database
                 try:
-                    images_collection.insert_one({'_id': pic_url.split('.')[0], 'tag': list_of_image_tags, 'q_grade': 0, 'image': b_img})
+                    images_collection.insert_one({'_id': pic_url.split('.')[0], 'tag': list_of_image_tags, 'q_grade': 0, 'image': b_img, 'makeup': makeup_as_txt, 'palette': palette_as_txt})
                 except Exception as e:
                     print(e)
                     continue
                 print(pic_url)
 
-        #fcsv.close()
         print('close file ' + hashtag)
         i = i + 1
 
@@ -139,6 +145,9 @@ def load_data_by_user_name():
     print(user_name_list)
     print(user_name_list[0])
     print(len(user_name_list))
+
+    extr_makeup = makeup_extractor.ExtractMakeup(False)
+    color_palette_extractor = makeup_extractor.ExtractColors()
 
     i = 0
     while i < len(user_name_list):
@@ -164,13 +173,21 @@ def load_data_by_user_name():
             webUrl = urllib.request.urlopen(url)
             image = Image.open(webUrl)
             content = p.content
-            extr_makeup = makeup_extractor.ExtractMakeup(False)
             img = np.array(image)
 
             if extr_makeup.detect_face(img):
 
-                # DECODE IMAGE
+                # ENCODE IMAGE
                 b_img = base64.b64encode(content)
+
+                # Extract makeup and palette
+                makeup, palette = makeup_extractor.get_results_as_nparray(img, extr_makeup, color_palette_extractor)
+
+                m_retval, m_buffer = cv2.imencode('.png', makeup)
+                p_retval, p_buffer = cv2.imencode('.png', palette)
+
+                makeup_as_txt = base64.b64encode(m_buffer)
+                palette_as_txt = base64.b64encode(p_buffer)
 
                 # Extract out_text
                 caption = media.caption
@@ -191,7 +208,7 @@ def load_data_by_user_name():
                     users_collection.update_one({'_id': user_name}, {'$addToSet': {'tags_list': {'$each': list_of_user_tags}, 'images': pic_url.split('.')[0]}}, upsert=True)
                 try:
                     images_collection.insert_one(
-                        {'_id': pic_url.split('.')[0], 'tag': list_of_user_tags, 'q_grade': 0, 'image': b_img})
+                        {'_id': pic_url.split('.')[0], 'tag': list_of_user_tags, 'q_grade': 0, 'image': b_img, 'makeup': makeup_as_txt, 'palette': palette_as_txt})
                 except Exception as e:
                     print(e)
                     continue
@@ -200,42 +217,23 @@ def load_data_by_user_name():
         print('close file ' + user_name)
         i = i + 1
 
-def find_max_size_from_all():
-    all_max_size = 0
-    for address, dirs, files in os.walk('files_with_data'):
-        for file in files:
-            if os.stat(address + '/' + file).st_size > all_max_size:
-                all_max_size = os.stat(address + '/' + file).st_size
-
-    return all_max_size
-
-def find_max_size_in_each_hashtag():
-    for address, dirs, files in os.walk('files_with_data'):
-        for dir in dirs:
-            if not os.path.exists('sizes/' + dir):
-                os.mkdir('sizes/' + dir)
-            for address1, dirs1, files1 in os.walk('files_with_data/' + dir):
-                max_size = 0
-                for file in files1:
-                    if os.stat('files_with_data/' + dir + '/' + str(file)).st_size > max_size:
-                        max_size = os.stat('files_with_data/' + dir + '/' + str(file)).st_size
-            size_file = open('sizes/' + dir + '/size_file.txt', 'w')
-            size_file.write(str(max_size))
-            size_file.close()
-
 def show_image_by_id(img_id_list):
     """
     :param img_id_list: string array of image ids
     :return: list of binary images
     """
     images_list = []
+    makeup_list = []
+    palette_list = []
     for img_id in img_id_list:
         if images_collection.find_one({'_id': img_id}) == {}:
             print('NO IMAGE WITH ID = ' + img_id)
         else:
             image = images_collection.find_one({'_id': img_id})
             images_list.append(image['image'])
-    return images_list
+            palette_list.append(image['palette'])
+            makeup_list.append(image['makeup'])
+    return images_list, makeup_list, palette_list
 
 def show_image_by_tag(tags):
     """
@@ -252,24 +250,23 @@ def show_image_by_tag(tags):
             if not os.path.exists(out_img_path):
                 os.mkdir(out_img_path)
             with open(out_img_path + img['_id'] + '.jpg', "wb") as fimage:
-                fimage.write(base64.b64decode(img['image']))
+                decoded_image = base64.b64decode(img['image'])
+                fimage.write(decoded_image)
                 fimage.close()
 
             # Extract makeup and palette
-            # extr_makeup = makeup_extractor.ExtractMakeup(False)
-            # color_palette_extractor = makeup_extractor.ExtractColors()
-            # makeup, palette = makeup_extractor.get_results_as_base64(img, extr_makeup, color_palette_extractor)
-            # makeup_img = Image.fromarray(makeup)
-            # palette_img = Image.fromarray(palette)
-            # makeup_img.save(out_img_path + 'makeup.jpg')
-            # palette_img.save(out_img_path + 'palette.jpg')
+            makeup_nparr = np.frombuffer(base64.b64decode(img['makeup']), np.uint8)
+            palette_nparr = np.frombuffer(base64.b64decode(img['palette']), np.uint8)
 
-            # with open(out_img_path + 'makeup.png', "wb") as fmakeup:
-            #     fmakeup.write(base64.b64decode(img['makeup']))
-            #     fmakeup.close()
-            # with open(out_img_path + 'palette.png', "wb") as fpalette:
-            #     fpalette.write(base64.b64decode(img['palette']))
-            #     fpalette.close()
+            makeup_img = cv2.imdecode(makeup_nparr, cv2.IMREAD_UNCHANGED)
+            palette_img = cv2.imdecode(palette_nparr, cv2.IMREAD_UNCHANGED)
+
+            makeup = Image.fromarray(makeup_img)
+            palette = Image.fromarray(palette_img)
+
+            makeup.save(out_img_path + 'makeup.png')
+            palette.save(out_img_path + 'palette.png')
+
 
 def show_image_by_user_name(names):
     """
@@ -293,14 +290,28 @@ def show_image_by_user_name(names):
                 if not os.path.exists(out_img_path):
                     os.mkdir(out_img_path)
 
-            images_list = show_image_by_id(user['images'])
+            images_list, makeups_list, palettes_list = show_image_by_id(user['images'])
+
             i = 0
-            for image in images_list:
-                if i < len(images_list):
-                    with open(names_path + user['images'][i] + '/' + user['images'][i] + '.jpg', "wb") as fimage:
-                        fimage.write(base64.b64decode(image))
-                        fimage.close()
-                        i = i + 1
+            while i < len(images_list):
+                with open(names_path + user['images'][i] + '/' + user['images'][i] + '.jpg', "wb") as fimage:
+                    fimage.write(base64.b64decode(images_list[i]))
+                    fimage.close()
+
+                    # Extract makeup and palette
+                    makeup_nparr = np.frombuffer(base64.b64decode(makeups_list[i]), np.uint8)
+                    palette_nparr = np.frombuffer(base64.b64decode(palettes_list[i]), np.uint8)
+
+                    makeup_img = cv2.imdecode(makeup_nparr, cv2.IMREAD_UNCHANGED)
+                    palette_img = cv2.imdecode(palette_nparr, cv2.IMREAD_UNCHANGED)
+
+                    makeup = Image.fromarray(makeup_img)
+                    palette = Image.fromarray(palette_img)
+
+                    makeup.save(names_path + user['images'][i] + '/' + 'makeup.png')
+                    palette.save(names_path + user['images'][i] + '/' + 'palette.png')
+
+                i = i + 1
 
             with open(out_text_path + str(name) + '.txt', 'w') as ftxt:
                 for el in user['tags_list']:
@@ -322,7 +333,7 @@ def extract_makeup_by_tag(tag_list):
                 for fol_file in fol_files:
                     if re.search(r'_n', fol_file):
                         img = plt.imread(fol_address + '/' + fol_file, 'jpg')
-                        makeup, palette = makeup_extractor.get_results_as_base64(img, extr_makeup, color_palette_extractor)
+                        makeup, palette = makeup_extractor.get_results_as_nparray(img, extr_makeup, color_palette_extractor)
                         makeup_img = Image.fromarray(makeup)
                         palette_img = Image.fromarray(palette)
                         makeup_img.save(fol_address + '/' + 'makeup.png')
@@ -342,7 +353,7 @@ def extract_makeup_by_user(users_list):
                 for fol_file in fol_files:
                     if re.search(r'_n', fol_file):
                         img = plt.imread(fol_address + '/' + fol_file, 'jpg')
-                        makeup, palette = makeup_extractor.get_results_as_base64(img, extr_makeup, color_palette_extractor)
+                        makeup, palette = makeup_extractor.get_results_as_nparray(img, extr_makeup, color_palette_extractor)
                         makeup_img = Image.fromarray(makeup)
                         palette_img = Image.fromarray(palette)
                         makeup_img.save(fol_address + '/' + 'makeup.png')
@@ -369,7 +380,33 @@ def extract_makeup_by_user(users_list):
 #db.<collection_name>.drop()
 
 
+
+
+
 # Experiments
+
+# def find_max_size_from_all():
+#     all_max_size = 0
+#     for address, dirs, files in os.walk('files_with_data'):
+#         for file in files:
+#             if os.stat(address + '/' + file).st_size > all_max_size:
+#                 all_max_size = os.stat(address + '/' + file).st_size
+#
+#     return all_max_size
+#
+# def find_max_size_in_each_hashtag():
+#     for address, dirs, files in os.walk('files_with_data'):
+#         for dir in dirs:
+#             if not os.path.exists('sizes/' + dir):
+#                 os.mkdir('sizes/' + dir)
+#             for address1, dirs1, files1 in os.walk('files_with_data/' + dir):
+#                 max_size = 0
+#                 for file in files1:
+#                     if os.stat('files_with_data/' + dir + '/' + str(file)).st_size > max_size:
+#                         max_size = os.stat('files_with_data/' + dir + '/' + str(file)).st_size
+#             size_file = open('sizes/' + dir + '/size_file.txt', 'w')
+#             size_file.write(str(max_size))
+#             size_file.close()
 
 
             # if os.path.exists(imagePath_to_extract + tag):
@@ -380,13 +417,52 @@ def extract_makeup_by_user(users_list):
             #     makeup_img.save(address + '/' + tag + '/' + 'makeup.jpg')
             #     palette_img.save(address + '/' + tag + '/' + 'palette.jpg')
 
+# extr_makeup = makeup_extractor.ExtractMakeup(False)
+# color_palette_extractor = makeup_extractor.ExtractColors()
+# for address, dirs, files in os.walk('out_imgs/tags/makeupaddict/'):
+#     for file in files:
+        #image = Image.open(address + '/' + file)
+        #img = np.array(image)
+        # img = plt.imread(address + '/' + file, 'jpg')
+        # # print(extr_makeup.detect_face(img))
+        # # print(extr_makeup.extract(img))
+        # makeup, palette = makeup_extractor.get_results_as_base64(img, extr_makeup, color_palette_extractor)
+        # # extr_makeup.plot_face_box()
+        #
+        # retval, buffer = cv2.imencode('.png', makeup)
+        # png_as_txt = base64.b64encode(buffer)
+        # nparr = np.frombuffer(base64.b64decode(png_as_txt), np.uint8)
+        # img2 = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
+        #
+        # im = Image.fromarray(img2)
+        # im.save(address + '/' + 'makeup.png')
 
-        # for file in files:
-        #     # image = Image.open(address + '/' + file)
-        #     # img = np.array(image)
-        #     img = plt.imread(address + '/' + file, 'jpg')
-        #     # print(extr_makeup.detect_face(img))
-        #     # print(extr_makeup.extract(img))
-        #     result = makeup_extractor.get_results_as_nparray(img, extr_makeup, color_palette_extractor)
-        #     # extr_makeup.plot_face_box()
-        #     print(result)
+        #base64_makeup = base64.b64encode(makeup)
+        #base64_palette = base64.b64encode(palette)
+
+        #image_data = re.sub('^data:image/.+;base64,', '', str(base64_makeup))
+        #b_image_data = bytes(image_data).decode('base64')
+
+        #encoded_image = str(base64_makeup).split(",")[1]
+        #decoded_image = base64.b64decode(encoded_image)
+        #bytes_image = io.BytesIO(decoded_image)
+        #image = Image.open(bytes_image).convert('RGB')
+
+        #print()
+        #print(base64_makeup)
+        #print(base64_palette)
+        #img = np.frombuffer(base64.b64decode(base64_makeup), dtype=np.uint8)
+        #image_string = io.BytesIO(base64.b64decode(base64_makeup))
+        #image_string.seek(0)
+
+        #image = Image.open(b_image_data)
+        #img = np.array(image)
+        #print('_____________________________________________________________')
+        #print(img2)
+        # with open(address + '/' + 'makeup.png', "wb") as fmakeup:
+        #     fmakeup.write(base64.b64decode(base64_makeup))
+        #     fmakeup.close()
+        # with open(address + '/' + 'palette.png', "wb") as fpalette:
+        #     fpalette.write(base64.b64decode(base64_palette))
+        #     fpalette.close()
+        #print(np.array_equal(makeup, img2))
