@@ -103,7 +103,11 @@ def load_data_by_tag():
             if extr_makeup.detect_face(img):
                 # Extract makeup and palette
 
-                makeup, palette = makeup_extractor.get_results_as_nparray(img, extr_makeup, color_palette_extractor)
+                try:
+                    makeup, palette = makeup_extractor.get_results_as_nparray(img, extr_makeup, color_palette_extractor)
+                except Exception as e:
+                    print(e)
+                    continue
 
                 m_retval, m_buffer = cv2.imencode('.png', makeup)
                 p_retval, p_buffer = cv2.imencode('.png', palette)
@@ -466,3 +470,6 @@ def extract_makeup_by_user(users_list):
         #     fpalette.write(base64.b64decode(base64_palette))
         #     fpalette.close()
         #print(np.array_equal(makeup, img2))
+
+
+#183089633_562793591356472_5912704159024989417_n
