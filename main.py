@@ -185,7 +185,11 @@ def load_data_by_user_name():
                 b_img = base64.b64encode(content)
 
                 # Extract makeup and palette
-                makeup, palette = makeup_extractor.get_results_as_nparray(img, extr_makeup, color_palette_extractor)
+                try:
+                    makeup, palette = makeup_extractor.get_results_as_nparray(img, extr_makeup, color_palette_extractor)
+                except Exception as e:
+                    print(e)
+                    continue
 
                 m_retval, m_buffer = cv2.imencode('.png', makeup)
                 p_retval, p_buffer = cv2.imencode('.png', palette)
