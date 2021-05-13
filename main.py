@@ -1,3 +1,4 @@
+import json.decoder
 
 import cv2
 from igramscraper.instagram import Instagram
@@ -27,7 +28,7 @@ def connecting_to_mongo_server():
 
     # Connect to our database
     # db = client['test_images']
-    db = client['Artem_images']
+    db = client[os.getenv('YOUR_DATABASE_NAME')]
 
     # Fetch our images collection
     images_collection = db['images']
@@ -43,6 +44,9 @@ out_text_folder = 'out_text/'
 out_imgs_folder_for_names = out_imgs_folder + 'names/'
 out_imgs_folder_for_tags = out_imgs_folder + 'tags/'
 out_text_folder_for_names = out_text_folder + 'user_names/'
+out_all_images_folder = 'all_images/'
+out_all_makeups_folder = 'all_makeups/'
+out_all_palettes_folder = 'all_palettes/'
 
 if not os.path.exists(out_imgs_folder):
     os.mkdir(out_imgs_folder)
@@ -54,6 +58,12 @@ if not os.path.exists(out_imgs_folder_for_tags):
     os.mkdir(out_imgs_folder_for_tags)
 if not os.path.exists(out_text_folder_for_names):
     os.mkdir(out_text_folder_for_names)
+if not os.path.exists(out_all_images_folder):
+    os.mkdir(out_all_images_folder)
+if not os.path.exists(out_all_makeups_folder):
+    os.mkdir(out_all_makeups_folder)
+if not os.path.exists(out_all_palettes_folder):
+    os.mkdir(out_all_palettes_folder)
 
 # Check if string contains something, but not like this trash "" or " or .
 def contains(string):
@@ -210,9 +220,6 @@ def load_data_by_tag_without_database(hashtags):
     :return: Download images in file folders
     """
 
-    # cookie = "sessions/diplom-test.txt"
-    # instagram.set_cookies(cookie)
-
     hash_list = hashtags.split()
     print(hash_list)
     print(hash_list[0])
@@ -225,6 +232,9 @@ def load_data_by_tag_without_database(hashtags):
 
         # Loading medias
         medias = instagram.get_medias_by_tag(hashtag, count=int(os.getenv('HASH_COUNT')))
+        if medias == []:
+            print('Данный аккаунт не подходит для работы, попробуйте другой аккаунт')
+            break
 
         # Get medias
         for media in medias:
@@ -261,8 +271,8 @@ def load_data_by_tag_without_database(hashtags):
                 if caption != None:
                     arr = caption.split('#')
                 else:
-                    arr = []
-                j = 1
+                    arr = [hashtag]
+                j = 0
                 while j < len(arr):
                     el = arr[j].replace(' ', '')
                     if contains(el):
@@ -293,9 +303,15 @@ def load_data_by_tag_without_database(hashtags):
                 with open(out_img_path + pic_url.split('.')[0] + '.jpg', "wb") as fimage:
                     fimage.write(content)
                     fimage.close()
+                with open(out_all_images_folder + pic_url.split('.')[0] + '.jpg', "wb") as allfimage:
+                    allfimage.write(content)
+                    allfimage.close()
 
                 makeup_img.save(out_img_path + '/' + 'makeup.png')
                 palette_img.save(out_img_path + '/' + 'palette.png')
+
+                makeup_img.save(out_all_makeups_folder + pic_url.split('.')[0] + '.png')
+                palette_img.save(out_all_palettes_folder + pic_url.split('.')[0] + '.png')
 
                 # Save text
                 if user_name != None and list_of_image_tags != []:
@@ -317,6 +333,7 @@ def load_data_by_tag_without_database(hashtags):
                             fatxt.close()
 
         print('close file ' + hashtag)
+        print('________________________________________________________')
         i = i + 1
 
 def load_data_by_user_name_without_database():
@@ -375,7 +392,10 @@ def load_data_by_user_name_without_database():
 
                 # Extract out_text
                 caption = media.caption
-                arr = caption.split('#')
+                if caption != None:
+                    arr = caption.split('#')
+                else:
+                    arr = []
                 j = 1
                 while j < len(arr):
                     el = arr[j].replace(' ', '')
@@ -396,9 +416,15 @@ def load_data_by_user_name_without_database():
                 with open(images_path_name + pic_url.split('.')[0] + '.jpg', "wb") as fimage:
                     fimage.write(content)
                     fimage.close()
+                with open(out_all_images_folder + pic_url.split('.')[0] + '.jpg', "wb") as allfimage:
+                    allfimage.write(content)
+                    allfimage.close()
 
                 makeup_img.save(images_path_name + '/' + 'makeup.png')
                 palette_img.save(images_path_name + '/' + 'palette.png')
+
+                makeup_img.save(out_all_makeups_folder + pic_url.split('.')[0] + '.png')
+                palette_img.save(out_all_palettes_folder + pic_url.split('.')[0] + '.png')
 
                 # Save text
                 if list_of_user_tags != []:
@@ -420,6 +446,7 @@ def load_data_by_user_name_without_database():
                             fatxt.close()
 
         print('close file ' + user_name)
+        print('________________________________________________________')
         i = i + 1
 
 # Download images in database
@@ -444,7 +471,16 @@ def load_data_by_tag(hashtags):
         hashtag = str(hash_list[i])
 
         # Loading medias
-        medias = instagram.get_medias_by_tag(hashtag, count=int(os.getenv('HASH_COUNT')))
+        try:
+            medias = instagram.get_medias_by_tag(hashtag, count=int(os.getenv('HASH_COUNT')))
+        except Exception as jsonerror:
+            print(jsonerror)
+            i = i + 1
+            continue
+
+        if medias == []:
+            print('Данный аккаунт не подходит для работы, попробуйте другой аккаунт')
+            break
 
         # Get medias
         for media in medias:
@@ -490,8 +526,8 @@ def load_data_by_tag(hashtags):
                 if caption != None:
                     arr = caption.split('#')
                 else:
-                    arr = []
-                j = 1
+                    arr = [hashtag]
+                j = 0
                 while j < len(arr):
                     el = arr[j].replace(' ', '')
                     if contains(el):
@@ -502,8 +538,13 @@ def load_data_by_tag(hashtags):
                 # Extract user name
                 account = media.owner
                 acc_id = account.identifier
-                acc_info = instagram.get_account_by_id(acc_id)
-                user_name = acc_info.username
+                try:
+                    acc_info = instagram.get_account_by_id(acc_id)
+                except Exception as e:
+                    print(e)
+                    user_name = None
+                else:
+                    user_name = acc_info.username
 
 
                 # Insert data in database
@@ -513,13 +554,15 @@ def load_data_by_tag(hashtags):
                     print(e)
                     continue
                 print(pic_url)
-                try:
-                    users_collection.insert_one({'_id': user_name, 'tags_list': list_of_image_tags, 'q_grade': 0, 'images': [pic_url.split('.')[0]]})
-                except Exception as e:
-                    print(e)
-                    users_collection.update_one({'_id': user_name}, {'$addToSet': {'tags_list': {'$each': list_of_image_tags}, 'images': pic_url.split('.')[0]}}, upsert=True)
+                if user_name != None:
+                    try:
+                        users_collection.insert_one({'_id': user_name, 'tags_list': list_of_image_tags, 'q_grade': 0, 'images': [pic_url.split('.')[0]]})
+                    except Exception as e:
+                        print(e)
+                        users_collection.update_one({'_id': user_name}, {'$addToSet': {'tags_list': {'$each': list_of_image_tags}, 'images': pic_url.split('.')[0]}}, upsert=True)
 
         print('close file ' + hashtag)
+        print('________________________________________________________')
         i = i + 1
 
 
@@ -620,6 +663,7 @@ def load_data_by_tag_generate_autotags(hashtags, start_list, end_list):
                     users_collection.update_one({'_id': user_name}, {'$addToSet': {'tags_list': {'$each': list_of_image_tags}, 'images': pic_url.split('.')[0]}}, upsert=True)
 
         print('close file ' + hashtag)
+        print('________________________________________________________')
         i = i + 1
 
 def load_data_by_user_name():
@@ -715,6 +759,7 @@ def load_data_by_user_name():
                 print(pic_url)
 
         print('close file ' + user_name)
+        print('________________________________________________________')
         i = i + 1
 
 def show_image_by_id(img_id_list):
@@ -759,6 +804,10 @@ def show_image_by_tag(tags):
                 decoded_image = base64.b64decode(img['image'])
                 fimage.write(decoded_image)
                 fimage.close()
+            with open(out_all_images_folder + img['_id'] + '.jpg', "wb") as allfimage:
+                decoded_image = base64.b64decode(img['image'])
+                allfimage.write(decoded_image)
+                allfimage.close()
 
             # Extract makeup and palette
             makeup_nparr = np.frombuffer(base64.b64decode(img['makeup']), np.uint8)
@@ -772,6 +821,10 @@ def show_image_by_tag(tags):
 
             makeup.save(out_img_path + 'makeup.png')
             palette.save(out_img_path + 'palette.png')
+
+            makeup.save(out_all_makeups_folder + img['_id'] + '.png')
+            palette.save(out_all_palettes_folder + img['_id'] + '.png')
+
 
 
 def show_image_by_user_name(names):
@@ -806,6 +859,9 @@ def show_image_by_user_name(names):
                 with open(names_path + user['images'][i] + '/' + user['images'][i] + '.jpg', "wb") as fimage:
                     fimage.write(base64.b64decode(images_list[i]))
                     fimage.close()
+                with open(out_all_images_folder + user['images'][i] + '.jpg', "wb") as allfimage:
+                    allfimage.write(base64.b64decode(images_list[i]))
+                    allfimage.close()
 
                     # Extract makeup and palette
                     makeup_nparr = np.frombuffer(base64.b64decode(makeups_list[i]), np.uint8)
@@ -819,6 +875,9 @@ def show_image_by_user_name(names):
 
                     makeup.save(names_path + user['images'][i] + '/' + 'makeup.png')
                     palette.save(names_path + user['images'][i] + '/' + 'palette.png')
+
+                    makeup.save(out_all_makeups_folder + user['images'][i] + '.png')
+                    palette.save(out_all_palettes_folder + user['images'][i] + '.png')
 
                 i = i + 1
 
@@ -893,7 +952,7 @@ def generate_autotags():
         load_data_by_tag_generate_autotags(new_tags_str, start, end)
 
 # Login to instagram
-log_in()
+#log_in()
 
 # Load data
 # You don't have to run log_in() function for load_data_by_user_name(), because it included there
@@ -903,7 +962,7 @@ log_in()
 
 # Download images and tags without database
 #load_data_by_tag_without_database(os.getenv('HASHTAGS'))
-load_data_by_user_name_without_database()
+#load_data_by_user_name_without_database()
 
 # Download images in out_img_path
 # No instagram login required
@@ -922,103 +981,3 @@ load_data_by_user_name_without_database()
 
 
 # Experiments
-
-# def find_max_size_from_all():
-#     all_max_size = 0
-#     for address, dirs, files in os.walk('files_with_data'):
-#         for file in files:
-#             if os.stat(address + '/' + file).st_size > all_max_size:
-#                 all_max_size = os.stat(address + '/' + file).st_size
-#
-#     return all_max_size
-#
-# def find_max_size_in_each_hashtag():
-#     for address, dirs, files in os.walk('files_with_data'):
-#         for dir in dirs:
-#             if not os.path.exists('sizes/' + dir):
-#                 os.mkdir('sizes/' + dir)
-#             for address1, dirs1, files1 in os.walk('files_with_data/' + dir):
-#                 max_size = 0
-#                 for file in files1:
-#                     if os.stat('files_with_data/' + dir + '/' + str(file)).st_size > max_size:
-#                         max_size = os.stat('files_with_data/' + dir + '/' + str(file)).st_size
-#             size_file = open('sizes/' + dir + '/size_file.txt', 'w')
-#             size_file.write(str(max_size))
-#             size_file.close()
-
-
-            # if os.path.exists(imagePath_to_extract + tag):
-            #     img = plt.imread(address + '/' + tag + '/' + file, 'jpg')
-            #     makeup, palette = makeup_extractor.get_results_as_base64(img, extr_makeup, color_palette_extractor)
-            #     makeup_img = Image.fromarray(makeup)
-            #     palette_img = Image.fromarray(palette)
-            #     makeup_img.save(address + '/' + tag + '/' + 'makeup.jpg')
-            #     palette_img.save(address + '/' + tag + '/' + 'palette.jpg')
-
-# extr_makeup = makeup_extractor.ExtractMakeup(False)
-# color_palette_extractor = makeup_extractor.ExtractColors()
-# for address, dirs, files in os.walk('out_imgs/tags/makeupaddict/'):
-#     for file in files:
-        #image = Image.open(address + '/' + file)
-        #img = np.array(image)
-        # img = plt.imread(address + '/' + file, 'jpg')
-        # # print(extr_makeup.detect_face(img))
-        # # print(extr_makeup.extract(img))
-        # makeup, palette = makeup_extractor.get_results_as_base64(img, extr_makeup, color_palette_extractor)
-        # # extr_makeup.plot_face_box()
-        #
-        # retval, buffer = cv2.imencode('.png', makeup)
-        # png_as_txt = base64.b64encode(buffer)
-        # nparr = np.frombuffer(base64.b64decode(png_as_txt), np.uint8)
-        # img2 = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
-        #
-        # im = Image.fromarray(img2)
-        # im.save(address + '/' + 'makeup.png')
-
-        #base64_makeup = base64.b64encode(makeup)
-        #base64_palette = base64.b64encode(palette)
-
-        #image_data = re.sub('^data:image/.+;base64,', '', str(base64_makeup))
-        #b_image_data = bytes(image_data).decode('base64')
-
-        #encoded_image = str(base64_makeup).split(",")[1]
-        #decoded_image = base64.b64decode(encoded_image)
-        #bytes_image = io.BytesIO(decoded_image)
-        #image = Image.open(bytes_image).convert('RGB')
-
-        #print()
-        #print(base64_makeup)
-        #print(base64_palette)
-        #img = np.frombuffer(base64.b64decode(base64_makeup), dtype=np.uint8)
-        #image_string = io.BytesIO(base64.b64decode(base64_makeup))
-        #image_string.seek(0)
-
-        #image = Image.open(b_image_data)
-        #img = np.array(image)
-        #print('_____________________________________________________________')
-        #print(img2)
-        # with open(address + '/' + 'makeup.png', "wb") as fmakeup:
-        #     fmakeup.write(base64.b64decode(base64_makeup))
-        #     fmakeup.close()
-        # with open(address + '/' + 'palette.png', "wb") as fpalette:
-        #     fpalette.write(base64.b64decode(base64_palette))
-        #     fpalette.close()
-        #print(np.array_equal(makeup, img2))
-
-
-# time_list = []
-# medias = instagram.get_medias('alek_chereshnya')
-# for media in medias:
-#     print(media)
-#     print('------------------------------------------------')
-#     time_list.append(media.created_time)
-#
-# print(time_list)
-#
-# i = 0
-# while i < len(time_list) - 1:
-#     if time_list[i] > time_list[i+1]:
-#         print('ok')
-#     else:
-#         print('nooo')
-#     i = i+1
