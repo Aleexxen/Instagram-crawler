@@ -1,7 +1,8 @@
 # Diplom
 
-Don't forget to pip install all from ***requirements.txt***
-
+Don't forget to pip install all from ***requirements.txt***  
+If you are using Linux or Ubuntu, you may need to install ***speech-dispatcher*** for the voice notification to work correctly, but this is not certain  
+  
 ***<ins>How to use?</ins>***  
 In the ***.env*** directory put your arguments  
 
