@@ -1,24 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
 
 from PIL import Image
-# from matplotlib import cm
-# from imageio import imread
-# from skimage.transform import resize
-# from matplotlib.colors import to_hex, to_rgba
-# from google.colab.patches import cv2_imshow
+
 import cv2
 import extcolors
 import dlib
-import base64
 
-import copy
-
-from os import listdir
-from os.path import isfile, join
-
-import wget
 
 # Download face landmarks predictor
 #mmod_human_face_detector = wget.download("https://github.com/justadudewhohacks/face-recognition.js-models/raw/master/models/mmod_human_face_detector.dat")
